@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+*.egg-info/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+
+# Machine Learning
+*.pkl
+*.joblib
+ml/data/*.csv
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Entornos y editores
+.vscode/
+.idea/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
