@@ -5,49 +5,31 @@ anemia-ml-app/
 ├── ESTRUCTURA.txt                     → Este árbol de carpetas
 │
 ├── frontend/                          → APLICACIÓN MÓVIL (Flutter / Dart)
-│   ├── pubspec.yaml                   → Dependencias de Flutter
-│   ├── assets/                        → Recursos (imágenes, íconos)
+│   ├── pubspec.yaml · android/ · test/
 │   └── lib/
-│       ├── main.dart                  → Punto de entrada de la app
-│       ├── models/                    → Modelos de datos
-│       │   ├── nino.dart
-│       │   └── valoracion.dart
-│       ├── services/                  → Comunicación con el backend
-│       │   └── api_service.dart
-│       └── screens/                   → Pantallas de la app
-│           ├── formulario_screen.dart → Pantalla 1: ingreso de datos
-│           ├── resultado_screen.dart  → Pantalla 2: resultado
-│           └── historial_screen.dart  → Pantalla 3: historial
+│       ├── main.dart                  → Entrada y control de sesión (AuthGate)
+│       ├── theme/app_theme.dart       → Paleta y tema
+│       ├── models/                    → usuario, nino, resultado, valoracion, resumen
+│       ├── services/                  → api_service, db_service (SQLite), auth_service,
+│       │                                sync_service, pdf_service, app_state
+│       ├── screens/                   → login, dashboard, formulario, resultado,
+│       │                                historial, detalle, reportes, home_shell
+│       └── widgets/                   → header, tarjeta, botón, anillo, item, nav, errores
 │
 ├── backend/                           → API REST (FastAPI / Python)
-│   ├── requirements.txt               → Dependencias del backend
-│   ├── Dockerfile                     → Empaquetado para despliegue
+│   ├── requirements.txt · requirements-dev.txt · Dockerfile
 │   ├── app/
-│   │   ├── main.py                    → Punto de entrada de la API
-│   │   ├── routers/
-│   │   │   └── prediccion.py          → Endpoint /api/predict
-│   │   ├── models/
-│   │   │   └── esquemas.py            → Esquemas de entrada/salida
-│   │   └── services/
-│   │       └── predictor.py           → Carga del modelo y predicción
-│   └── tests/
-│       └── test_prediccion.py         → Pruebas unitarias
+│   │   ├── main.py · db.py · deps.py
+│   │   ├── routers/                   → auth, prediccion, valoraciones, reportes
+│   │   ├── models/esquemas.py         → Esquemas Pydantic y validaciones
+│   │   └── services/                  → predictor (carga .pkl), seguridad (hash/token)
+│   └── tests/                         → conftest.py, test_prediccion.py
 │
 ├── ml/                                → MACHINE LEARNING (CRISP-DM)
-│   ├── requirements.txt               → Dependencias de ML
-│   ├── notebooks/
-│   │   └── 01_analisis_exploratorio.ipynb  → EDA
-│   ├── scripts/
-│   │   └── entrenar_modelo.py         → Entrenamiento Random Forest
-│   ├── models/                        → Modelos entrenados (.pkl)
-│   └── data/                          → Datos para el modelo
+│   ├── scripts/entrenar_modelo.py     → Entrenamiento Random Forest
+│   ├── scripts/generar_dataset_sintetico.py
+│   ├── models/                        → modelo_anemia_rf.pkl (no versionado)
+│   └── notebooks/ · data/
 │
-├── data/                              → CONJUNTOS DE DATOS
-│   ├── README.md
-│   ├── raw/                           → Datos originales (no versionados)
-│   └── processed/                     → Datos limpios (train/test)
-│
-└── docs/                              → DOCUMENTACIÓN
-    ├── README.md
-    ├── diagramas/                     → Casos de uso, clases, MER, arquitectura
-    └── entregables/                   → Documentos Mobile-D y CRISP-DM
+├── data/                              → raw/ y processed/ (no versionados)
+└── docs/                              → Documentación y diagramas

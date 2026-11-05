@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Necesario en desarrollo (hot reload, depuración). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- SOLO en debug: permite http:// hacia el backend local (10.0.2.2:8000).
+         Las compilaciones release NO lo permiten: allí la API debe ir por HTTPS (HU10). -->
+    <application android:usesCleartextTraffic="true"/>
+</manifest>

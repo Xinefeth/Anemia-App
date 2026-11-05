@@ -30,3 +30,7 @@ data/processed/*
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Base de datos local y cachés de pruebas
+*.db
+.pytest_cache/
