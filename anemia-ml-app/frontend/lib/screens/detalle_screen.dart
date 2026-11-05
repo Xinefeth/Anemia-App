@@ -99,6 +99,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              AvisoAnemia(v.datos),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -107,8 +108,10 @@ class _DetalleScreenState extends State<DetalleScreen> {
                     _fila('Fecha', fmtFecha(v.fecha)),
                     _fila('Edad', '${v.datos.edadMeses} meses'),
                     _fila('Sexo', v.datos.sexo == 'F' ? 'Femenino' : 'Masculino'),
-                    _fila('Hemoglobina', '${v.datos.hemoglobina.toStringAsFixed(1)} g/dL'),
+                    _fila('Hemoglobina', fmtHb(v.datos.hemoglobina)),
                     _fila('Altitud', '${v.datos.altitud.toStringAsFixed(0)} msnm'),
+                    _fila('Control CRED', v.datos.cred ? 'Sí' : 'No'),
+                    _fila('Suplementación', v.datos.suplementacion ? 'Sí' : 'No'),
                     _fila('Grupo', v.datos.grupo == 'control' ? 'Control' : 'Experimental', ultima: true),
                   ]),
                 ),

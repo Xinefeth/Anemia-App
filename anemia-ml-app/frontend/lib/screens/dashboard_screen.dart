@@ -4,6 +4,8 @@ import '../models/modelos.dart';
 import '../theme.dart';
 import '../widgets/comunes.dart';
 import 'detalle_screen.dart';
+import 'ninos_screen.dart';
+import 'usuarios_screen.dart';
 import 'shell.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -58,9 +60,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const CircleAvatar(
                 backgroundColor: Paleta.primario,
                 child: Icon(Icons.person, color: Colors.white)),
-            onSelected: (_) => app.logout(),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
+            onSelected: (v) {
+              if (v == 'ninos') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NinosScreen()));
+              } else if (v == 'usuarios') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const UsuariosScreen()));
+              } else {
+                app.logout();
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'ninos', child: Text('Niños')),
+              // Los enfermeros no gestionan usuarios (el servidor responde 403).
+              if (u?.rol != 'enfermero')
+                const PopupMenuItem(value: 'usuarios', child: Text('Usuarios')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
             ],
           ),
           const SizedBox(width: 12),

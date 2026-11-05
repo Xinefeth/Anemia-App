@@ -1,10 +1,12 @@
 // Pantalla 3: Formulario de datos (HU02, HU03, HU04; RF07, RF12).
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/modelos.dart';
 import '../services/api.dart';
 import '../theme.dart';
 import '../widgets/comunes.dart';
+import '../widgets/validadores.dart';
 import 'resultado_screen.dart';
 
 class FormularioScreen extends StatefulWidget {
@@ -21,7 +23,11 @@ class _FormularioScreenState extends State<FormularioScreen> {
   final _altitud = TextEditingController();
   String _sexo = 'F';
   String _grupo = 'control';
+  bool _cred = false;
+  bool _suplementacion = false;
   bool _cargando = false;
+  bool _lento = false; // el servidor tarda: probable arranque en frío
+  Timer? _temporizador;
   bool _borradorLeido = false;
 
   @override
@@ -37,6 +43,8 @@ class _FormularioScreenState extends State<FormularioScreen> {
     _altitud.text = b['altitud'] ?? '';
     _sexo = b['sexo'] ?? 'F';
     _grupo = b['grupo'] ?? 'control';
+    _cred = b['cred'] == '1';
+    _suplementacion = b['suplementacion'] == '1';
   }
 
   void _guardarBorrador() => AppScope.of(context).guardarBorrador({
@@ -46,6 +54,8 @@ class _FormularioScreenState extends State<FormularioScreen> {
         'altitud': _altitud.text,
         'sexo': _sexo,
         'grupo': _grupo,
+        'cred': _cred ? '1' : '0',
+        'suplementacion': _suplementacion ? '1' : '0',
       });
 
   void _limpiar() {
@@ -56,21 +66,10 @@ class _FormularioScreenState extends State<FormularioScreen> {
     setState(() {
       _sexo = 'F';
       _grupo = 'control';
+      _cred = false;
+      _suplementacion = false;
     });
     AppScope.of(context).borrarBorrador();
-  }
-
-  // Reglas RN01 (menor de 5 años) y RN02 (hemoglobina en rango clínico).
-  String? _vCodigo(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Ingresa el código del niño' : null;
-
-  String? _vNumero(String? v, String campo, double min, double max,
-      {String unidad = ''}) {
-    if (v == null || v.trim().isEmpty) return 'Ingresa ${campo.toLowerCase()}';
-    final n = double.tryParse(v.replaceAll(',', '.'));
-    if (n == null) return '$campo no es un número válido';
-    if (n < min || n > max) return '$campo debe estar entre $min y $max $unidad'.trim();
-    return null;
   }
 
   Future<void> _evaluar() async {
@@ -83,9 +82,14 @@ class _FormularioScreenState extends State<FormularioScreen> {
       sexo: _sexo,
       hemoglobina: double.parse(_hb.text.replaceAll(',', '.')),
       altitud: double.parse(_altitud.text.replaceAll(',', '.')),
+      cred: _cred,
+      suplementacion: _suplementacion,
       grupo: _grupo,
     );
     setState(() => _cargando = true);
+    _temporizador = Timer(const Duration(seconds: 6), () {
+      if (mounted && _cargando) setState(() => _lento = true);
+    });
     try {
       final p = await app.api.predecir(datos);
       if (!mounted) return;
@@ -105,12 +109,19 @@ class _FormularioScreenState extends State<FormularioScreen> {
         ));
       }
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      _temporizador?.cancel();
+      if (mounted) {
+        setState(() {
+          _cargando = false;
+          _lento = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
+    _temporizador?.cancel();
     for (final c in [_codigo, _edad, _hb, _altitud]) {
       c.dispose();
     }
@@ -131,7 +142,7 @@ class _FormularioScreenState extends State<FormularioScreen> {
             decoration: const InputDecoration(
                 labelText: 'ID del niño *',
                 helperText: 'Usa un código; no registres nombres (privacidad)'),
-            validator: _vCodigo,
+            validator: vCodigo,
           ),
           const SizedBox(height: 14),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -141,7 +152,7 @@ class _FormularioScreenState extends State<FormularioScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(labelText: 'Edad (meses) *'),
-                validator: (v) => _vNumero(v, 'La edad', 0, 59, unidad: 'meses'),
+                validator: vEdad,
               ),
             ),
             const SizedBox(width: 12),
@@ -168,14 +179,33 @@ class _FormularioScreenState extends State<FormularioScreen> {
             controller: _hb,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Hemoglobina (g/dL) *'),
-            validator: (v) => _vNumero(v, 'La hemoglobina', 3, 20, unidad: 'g/dL'),
+            validator: vHb,
           ),
           const SizedBox(height: 14),
           TextFormField(
             controller: _altitud,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Altitud (msnm) *'),
-            validator: (v) => _vNumero(v, 'La altitud', 0, 5500, unidad: 'msnm'),
+            validator: vAltitud,
+          ),
+          const SizedBox(height: 6),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Asiste a control CRED'),
+            value: _cred,
+            onChanged: (v) {
+              setState(() => _cred = v);
+              _guardarBorrador();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Recibe suplementación con hierro'),
+            value: _suplementacion,
+            onChanged: (v) {
+              setState(() => _suplementacion = v);
+              _guardarBorrador();
+            },
           ),
           const Titulo('Grupo de estudio'),
           SegmentedButton<String>(
@@ -200,6 +230,12 @@ class _FormularioScreenState extends State<FormularioScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
                 : const Text('Evaluar riesgo'),
           ),
+          if (_lento) ...[
+            const SizedBox(height: 10),
+            const Text('Despertando el servidor… puede tardar hasta un minuto.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Paleta.suave, fontSize: 13)),
+          ],
           const SizedBox(height: 10),
           const Text('* Campos obligatorios',
               textAlign: TextAlign.center, style: TextStyle(color: Paleta.suave, fontSize: 12)),

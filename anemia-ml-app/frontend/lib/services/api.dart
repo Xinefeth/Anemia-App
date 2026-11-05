@@ -21,7 +21,8 @@ class SesionExpirada implements Exception {
 /// Error de negocio devuelto por el servidor (credenciales, validación...).
 class ErrorApi implements Exception {
   final String mensaje;
-  ErrorApi(this.mensaje);
+  final int? codigo; // código HTTP, si lo hay (403 = sin permiso)
+  ErrorApi(this.mensaje, {this.codigo});
   @override
   String toString() => mensaje;
 }
@@ -42,6 +43,20 @@ abstract class Api {
   Future<void> eliminar(int id);
   Future<Dashboard> dashboard();
   Future<Reporte> reporte(DateTime desde, DateTime hasta);
+
+  // Niños (RF07-RF11)
+  Future<List<Nino>> listarNinos(String busqueda);
+  Future<Nino> crearNino(DatosNino datos);
+  Future<Nino> actualizarNino(int id, DatosNino datos);
+  Future<void> eliminarNino(int id);
+
+  // Usuarios (RF03-RF06)
+  Future<List<UsuarioAdmin>> listarUsuarios();
+  Future<UsuarioAdmin> crearUsuario(
+      String nombre, String rol, String usuario, String clave);
+  Future<UsuarioAdmin> actualizarUsuario(int id, String nombre, String rol,
+      {String? clave});
+  Future<void> eliminarUsuario(int id); // inhabilita
 }
 
 /// Cliente real contra la API FastAPI. Todas las rutas, salvo /login,
@@ -77,12 +92,12 @@ class HttpApi implements Api {
     final cuerpo = r.body.isEmpty ? null : jsonDecode(utf8.decode(r.bodyBytes));
     if (r.statusCode >= 200 && r.statusCode < 300) return cuerpo;
     if (r.statusCode >= 500) throw SinConexion();
-    var msg = 'Error ${r.statusCode}';
+    var msg = r.statusCode == 403 ? 'No tienes permiso para esta acción.' : 'Error ${r.statusCode}';
     if (cuerpo is Map && cuerpo['detail'] != null) {
       final d = cuerpo['detail'];
       msg = d is String ? d : 'Datos inválidos';
     }
-    throw ErrorApi(msg);
+    throw ErrorApi(msg, codigo: r.statusCode);
   }
 
   @override
@@ -155,5 +170,76 @@ class HttpApi implements Api {
         _u('/api/reporte', {'desde': f(desde), 'hasta': f(hasta)}),
         headers: _cab));
     return Reporte.fromJson(j as Map<String, dynamic>);
+  }
+
+  // ---- Niños ----
+  @override
+  Future<List<Nino>> listarNinos(String q) async {
+    final j = await _enviar(() => http.get(
+        _u('/api/ninos', {if (q.isNotEmpty) 'q': q}),
+        headers: _cab));
+    return (j as List)
+        .map((e) => Nino.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<Nino> crearNino(DatosNino d) async {
+    final j = await _enviar(() =>
+        http.post(_u('/api/ninos'), headers: _cab, body: jsonEncode(d.toJson())));
+    return Nino.fromJson(j as Map<String, dynamic>);
+  }
+
+  @override
+  Future<Nino> actualizarNino(int id, DatosNino d) async {
+    final j = await _enviar(() => http.put(_u('/api/ninos/$id'),
+        headers: _cab, body: jsonEncode(d.toJson())));
+    return Nino.fromJson(j as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> eliminarNino(int id) async {
+    await _enviar(() => http.delete(_u('/api/ninos/$id'), headers: _cab));
+  }
+
+  // ---- Usuarios ----
+  @override
+  Future<List<UsuarioAdmin>> listarUsuarios() async {
+    final j = await _enviar(() => http.get(_u('/api/usuarios'), headers: _cab));
+    return (j as List)
+        .map((e) => UsuarioAdmin.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<UsuarioAdmin> crearUsuario(
+      String nombre, String rol, String usuario, String clave) async {
+    final j = await _enviar(() => http.post(_u('/api/usuarios'),
+        headers: _cab,
+        body: jsonEncode({
+          'nombre': nombre,
+          'rol': rol,
+          'usuario': usuario,
+          'contrasena': clave,
+        })));
+    return UsuarioAdmin.fromJson(j as Map<String, dynamic>);
+  }
+
+  @override
+  Future<UsuarioAdmin> actualizarUsuario(int id, String nombre, String rol,
+      {String? clave}) async {
+    final j = await _enviar(() => http.put(_u('/api/usuarios/$id'),
+        headers: _cab,
+        body: jsonEncode({
+          'nombre': nombre,
+          'rol': rol,
+          if (clave != null && clave.isNotEmpty) 'contrasena': clave,
+        })));
+    return UsuarioAdmin.fromJson(j as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> eliminarUsuario(int id) async {
+    await _enviar(() => http.delete(_u('/api/usuarios/$id'), headers: _cab));
   }
 }

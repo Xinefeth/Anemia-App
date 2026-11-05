@@ -67,7 +67,9 @@ class _ReportesScreenState extends State<ReportesScreen> {
   Future<void> _exportar() async {
     final r = _r!;
     final doc = pw.Document();
-    String f(double v, String u) => '${v.toStringAsFixed(0)} $u';
+    String f(double v, String u, InfoGrupo i) => i.sinDatos
+        ? 'Sin datos'
+        : '${formatoValor(v, u)}${i.nota == null ? '' : ' (${i.nota})'}';
     doc.addPage(pw.Page(
       build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
         pw.Text('Reporte de valoraciones',
@@ -79,9 +81,9 @@ class _ReportesScreenState extends State<ReportesScreen> {
         pw.TableHelper.fromTextArray(
           headers: ['Indicador', 'Control', 'Experimental'],
           data: [
-            ['PC - Clasificaciones correctas', f(r.pc.control, '%'), f(r.pc.experimental, '%')],
-            ['TR - Tiempo de respuesta', f(r.tr.control, 's'), f(r.tr.experimental, 's')],
-            ['TT - Tasa de tamizaje', f(r.tt.control, '%'), f(r.tt.experimental, '%')],
+            ['PC - Clasificaciones correctas', f(r.pc.control, '%', r.infoPc(false)), f(r.pc.experimental, '%', r.infoPc(true))],
+            ['TR - Tiempo de respuesta', f(r.tr.control, 's', r.infoTr(false)), f(r.tr.experimental, 's', r.infoTr(true))],
+            ['TT - Tasa de tamizaje', f(r.tt.control, '%', r.infoTt(false)), f(r.tt.experimental, '%', r.infoTt(true))],
           ],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
           headerDecoration: const pw.BoxDecoration(color: PdfColors.teal700),
@@ -127,12 +129,15 @@ class _ReportesScreenState extends State<ReportesScreen> {
           Text('${r.total} valoraciones en el periodo',
               style: const TextStyle(color: Paleta.suave)),
           const SizedBox(height: 8),
-          _TarjetaIndicador('Indicador PC', 'Clasificaciones correctas', r.pc, '%', max: 100),
+          _TarjetaIndicador('Indicador PC', 'Clasificaciones correctas', r.pc, '%',
+              max: 100, control: r.infoPc(false), experimental: r.infoPc(true)),
           const SizedBox(height: 10),
-          _TarjetaIndicador('Indicador TR', 'Tiempo de respuesta (menor es mejor)', r.tr, ' s',
-              max: [r.tr.control, r.tr.experimental].reduce((a, b) => a > b ? a : b)),
+          _TarjetaIndicador('Indicador TR', 'Tiempo de respuesta (menor es mejor)', r.tr, 's',
+              max: [r.tr.control, r.tr.experimental].reduce((a, b) => a > b ? a : b),
+              control: r.infoTr(false), experimental: r.infoTr(true)),
           const SizedBox(height: 10),
-          _TarjetaIndicador('Indicador TT', 'Tasa de tamizaje', r.tt, '%', max: 100),
+          _TarjetaIndicador('Indicador TT', 'Tasa de tamizaje', r.tt, '%',
+              max: 100, control: r.infoTt(false), experimental: r.infoTt(true)),
           const SizedBox(height: 16),
           FilledButton.icon(
               onPressed: _exportar,
@@ -144,32 +149,49 @@ class _ReportesScreenState extends State<ReportesScreen> {
   }
 }
 
+/// Valor con la precisión adecuada: segundos con 3 decimales si son pocos.
+String formatoValor(double v, String unidad) {
+  if (unidad == 's') return '${v < 10 ? v.toStringAsFixed(3) : v.toStringAsFixed(1)} s';
+  return '${v.toStringAsFixed(0)}$unidad';
+}
+
 class _TarjetaIndicador extends StatelessWidget {
   final String titulo, detalle, unidad;
   final Indicador ind;
   final double max;
-  const _TarjetaIndicador(this.titulo, this.detalle, this.ind, this.unidad, {required this.max});
+  final InfoGrupo control, experimental;
+  const _TarjetaIndicador(this.titulo, this.detalle, this.ind, this.unidad,
+      {required this.max, required this.control, required this.experimental});
 
-  Widget _barra(String etiqueta, double v, Color c) => Padding(
+  Widget _barra(String etiqueta, double v, Color c, InfoGrupo info) => Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Row(children: [
           SizedBox(width: 92, child: Text(etiqueta, style: const TextStyle(fontSize: 13))),
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: max <= 0 ? 0 : (v / max).clamp(0, 1),
-                minHeight: 12,
-                color: c,
-                backgroundColor: Paleta.borde,
-              ),
-            ),
+            child: info.sinDatos
+                ? const Text('Sin datos',
+                    style: TextStyle(color: Paleta.suave, fontStyle: FontStyle.italic, fontSize: 13))
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: max <= 0 ? 0 : (v / max).clamp(0, 1),
+                      minHeight: 12,
+                      color: c,
+                      backgroundColor: Paleta.borde,
+                    ),
+                  ),
           ),
           SizedBox(
-              width: 64,
-              child: Text('${v.toStringAsFixed(0)}$unidad',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(fontWeight: FontWeight.w700))),
+            width: 112,
+            child: info.sinDatos
+                ? const SizedBox.shrink()
+                : Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(formatoValor(v, unidad),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    if (info.nota != null)
+                      Text(info.nota!, style: const TextStyle(fontSize: 11, color: Paleta.suave)),
+                  ]),
+          ),
         ]),
       );
 
@@ -180,8 +202,8 @@ class _TarjetaIndicador extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(titulo, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
             Text(detalle, style: const TextStyle(color: Paleta.suave, fontSize: 12)),
-            _barra('Control', ind.control, Paleta.suave),
-            _barra('Experimental', ind.experimental, Paleta.primario),
+            _barra('Control', ind.control, Paleta.suave, control),
+            _barra('Experimental', ind.experimental, Paleta.primario, experimental),
           ]),
         ),
       );

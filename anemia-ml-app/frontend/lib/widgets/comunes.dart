@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/modelos.dart';
 import '../services/app_state.dart';
+import '../services/hemoglobina.dart';
 import '../services/api.dart';
 import '../theme.dart';
 
@@ -16,6 +17,7 @@ class AppScope extends InheritedNotifier<AppState> {
 
 String fmtFecha(DateTime d) => DateFormat('dd/MM/yyyy HH:mm').format(d);
 String fmtDia(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+String fmtHb(double? hb) => hb == null ? '—' : '${hb.toStringAsFixed(1)} g/dL';
 String fmtPct(double p) => '${(p * 100).toStringAsFixed(0)}%';
 
 String mensajeError(Object e) {
@@ -63,7 +65,7 @@ class ValoracionTile extends StatelessWidget {
         title: Text(v.datos.codigo,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            '${fmtFecha(v.fecha)} · Hb ${v.datos.hemoglobina.toStringAsFixed(1)} g/dL'
+            '${fmtFecha(v.fecha)} · Hb ${fmtHb(v.datos.hemoglobina)}'
             '${v.pendiente ? ' · pendiente de envío' : ''}'),
         trailing: RiesgoBadge(v.riesgo),
       ),
@@ -90,6 +92,49 @@ class AvisoSinConexion extends StatelessWidget {
           Expanded(child: Text(texto, style: const TextStyle(fontSize: 13))),
         ]),
       );
+}
+
+/// Advertencia cuando la Hb medida (ajustada por altitud) sugiere anemia,
+/// aunque el modelo no use hemoglobina. Valoración de riesgo, no diagnóstico.
+class AvisoAnemia extends StatelessWidget {
+  final DatosNino datos;
+  const AvisoAnemia(this.datos, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final hb = datos.hemoglobina;
+    if (!sugiereAnemia(hb, datos.altitud)) return const SizedBox.shrink();
+    final aj = hbAjustada(hb!, datos.altitud);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Paleta.alto.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Paleta.alto.withValues(alpha: 0.5)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.warning_amber_rounded, color: Paleta.alto),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('La hemoglobina medida sugiere anemia',
+                style: TextStyle(fontWeight: FontWeight.w700, color: Paleta.alto)),
+            const SizedBox(height: 4),
+            Text(
+              'Hb ${hb.toStringAsFixed(1)} g/dL'
+              '${datos.altitud >= 1000 ? ' (ajustada por altitud: ${aj.toStringAsFixed(1)} g/dL)' : ''}, '
+              'por debajo de ${umbralAnemia.toStringAsFixed(0)} g/dL. '
+              'El modelo no usa hemoglobina. Esta app valora riesgo, no diagnostica: '
+              'confirme con el profesional de salud.',
+              style: const TextStyle(fontSize: 13),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }
 
 class EstadoError extends StatelessWidget {
