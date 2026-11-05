@@ -1,7 +1,7 @@
-# Aplicación Móvil con Machine Learning para la Valoración del Riesgo de Anemia
+# AnemIA — App móvil para la valoración del riesgo de anemia infantil
 
-Aplicación móvil que, mediante técnicas de Machine Learning, apoya al personal de salud
-en la valoración del riesgo de anemia en niños menores de cinco años en Trujillo.
+Aplicación móvil (Flutter) que apoya al personal de salud en la valoración del riesgo de anemia
+en niños menores de cinco años en Trujillo. Es una valoración de riesgo, no un diagnóstico.
 
 ## Tesis
 **Universidad Privada Antenor Orrego (UPAO)** — Ingeniería de Computación y Sistemas
@@ -9,46 +9,27 @@ en la valoración del riesgo de anemia en niños menores de cinco años en Truji
 - Asesor: Dr. Segundo Edwin Cieza Mostacero
 - Año: 2026
 
-## Arquitectura
-Cliente-servidor de 3 capas con un componente de Machine Learning:
-- **Frontend:** aplicación móvil (Flutter / Dart)
-- **Backend:** API REST (FastAPI / Python)
-- **Machine Learning:** modelo Random Forest (scikit-learn)
-- **Base de datos:** PostgreSQL / SQLite
+## Alcance de este repositorio
+Solo el **frontend**. El backend (API FastAPI, base de datos PostgreSQL y modelo de Machine Learning)
+vive en un repositorio aparte y la app lo consume por HTTP/JSON (contrato en `frontend/lib/services/api.dart`).
 
-## Estructura del repositorio
 ```
 anemia-ml-app/
-├── frontend/     → Aplicación móvil (Flutter)
-├── backend/      → API REST (FastAPI)
-├── ml/           → Entrenamiento y modelo de Machine Learning
-├── data/         → Conjuntos de datos
-├── docs/         → Documentación y diagramas
-├── .gitignore
+├── frontend/   → Aplicación móvil (Flutter)
+├── docs/       → Documentación y diagramas
 └── README.md
 ```
 
-## Metodología
-- **Mobile-D** para el desarrollo del software.
-- **CRISP-DM** para el desarrollo del modelo de Machine Learning.
-
-## Instalación
-
-### Backend
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate        # En Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-### Frontend
+## Ejecución
 ```bash
 cd frontend
 flutter pub get
-flutter run
+flutter run --dart-define=MOCK=true     # API simulada (contraseña demo: demo)
 ```
+Para usar el backend real, configura la URL base en `frontend/lib/config.dart`.
+
+## Metodología
+Mobile-D para el desarrollo del software.
 
 ## Licencia
 Proyecto académico — UPAO 2026.
