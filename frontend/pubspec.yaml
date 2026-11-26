@@ -1,0 +1,34 @@
+name: anemia_ml_app
+description: Aplicación móvil para la valoración del riesgo de anemia en niños.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+  intl: ^0.20.2
+  pdf: ^3.10.0
+  printing: ^5.12.0
+  cupertino_icons: ^1.0.6
+  sqflite: ^2.4.2
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  sqflite_common_ffi: ^2.3.7+1
+
+flutter:
+  uses-material-design: true
+
+dependency_overrides:
+  # image 4.11 (dependencia de pdf) es incompatible con archive 4.0.9
+  image: 4.5.4
