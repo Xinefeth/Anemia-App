@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/modelos.dart';
 import '../theme.dart';
+import '../widgets/campo_opcion.dart';
 import '../widgets/comunes.dart';
 import '../widgets/validadores.dart';
 
@@ -93,14 +94,14 @@ class _NinosScreenState extends State<NinosScreen> {
                             return Card(
                               child: ListTile(
                                 onTap: () => _abrir(n),
-                                leading: const CircleAvatar(
-                                    backgroundColor: Color(0xFFE0F2F1),
-                                    child: Icon(Icons.child_care, color: Paleta.primario)),
+                                leading: CircleAvatar(
+                                    backgroundColor: Paleta.primario.withValues(alpha: 0.12),
+                                    child: const Icon(Icons.child_care, color: Paleta.primario)),
                                 title: Text(n.datos.codigo,
                                     style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text(
                                     '${n.datos.edadMeses} meses · ${n.datos.sexo == 'F' ? 'Niña' : 'Niño'} · '
-                                    'Hb ${fmtHb(n.datos.hemoglobina)}'),
+                                    '${n.datos.altitud.toStringAsFixed(0)} msnm'),
                                 trailing: const Icon(Icons.chevron_right),
                               ),
                             );
@@ -122,9 +123,11 @@ class NinoFormScreen extends StatefulWidget {
 
 class _NinoFormScreenState extends State<NinoFormScreen> {
   final _clave = GlobalKey<FormState>();
-  late final TextEditingController _codigo, _edad, _hb, _altitud;
-  late String _sexo, _grupo;
-  late bool _cred, _suplementacion;
+  late final TextEditingController _codigo, _edad, _altitud;
+  String? _sexo; // sin valor por defecto al registrar
+  bool? _cred;
+  bool? _suplementacion;
+  late String _grupo;
   bool _guardando = false;
 
   bool get _edicion => widget.nino != null;
@@ -135,17 +138,16 @@ class _NinoFormScreenState extends State<NinoFormScreen> {
     final d = widget.nino?.datos;
     _codigo = TextEditingController(text: d?.codigo ?? '');
     _edad = TextEditingController(text: d?.edadMeses.toString() ?? '');
-    _hb = TextEditingController(text: d?.hemoglobina?.toString() ?? '');
     _altitud = TextEditingController(text: d?.altitud.toStringAsFixed(0) ?? '');
-    _sexo = d?.sexo ?? 'F';
+    _sexo = d?.sexo;
     _grupo = d?.grupo ?? 'control';
-    _cred = d?.cred ?? false;
-    _suplementacion = d?.suplementacion ?? false;
+    _cred = d?.cred;
+    _suplementacion = d?.suplementacion;
   }
 
   @override
   void dispose() {
-    for (final c in [_codigo, _edad, _hb, _altitud]) {
+    for (final c in [_codigo, _edad, _altitud]) {
       c.dispose();
     }
     super.dispose();
@@ -154,11 +156,10 @@ class _NinoFormScreenState extends State<NinoFormScreen> {
   DatosNino _datos() => DatosNino(
         codigo: _codigo.text.trim(),
         edadMeses: int.parse(_edad.text),
-        sexo: _sexo,
-        hemoglobina: double.parse(_hb.text.replaceAll(',', '.')),
+        sexo: _sexo!,
         altitud: double.parse(_altitud.text.replaceAll(',', '.')),
-        cred: _cred,
-        suplementacion: _suplementacion,
+        cred: _cred!,
+        suplementacion: _suplementacion!,
         grupo: _grupo,
       );
 
@@ -240,52 +241,44 @@ class _NinoFormScreenState extends State<NinoFormScreen> {
                 controller: _edad,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Edad (meses) *'),
+                decoration: const InputDecoration(labelText: 'Edad (meses) *', helperText: '6 a 59'),
                 validator: vEdad,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'Sexo'),
-                child: SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'F', label: Text('F')),
-                    ButtonSegment(value: 'M', label: Text('M')),
-                  ],
-                  selected: {_sexo},
-                  onSelectionChanged: (s) => setState(() => _sexo = s.first),
-                ),
+              child: TextFormField(
+                controller: _altitud,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                    labelText: 'Altitud (msnm) *', helperText: 'Establecimiento: 0 a 700'),
+                validator: vAltitud,
               ),
             ),
           ]),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _hb,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Hemoglobina (g/dL) *'),
-            validator: vHb,
+          const SizedBox(height: 16),
+          CampoOpcion<String>(
+            etiqueta: 'Sexo',
+            opciones: const [('F', 'Femenino'), ('M', 'Masculino')],
+            valor: _sexo,
+            mensajeFalta: 'Elige el sexo del niño',
+            alCambiar: (v) => setState(() => _sexo = v),
           ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _altitud,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Altitud (msnm) *'),
-            validator: vAltitud,
+          const SizedBox(height: 16),
+          CampoOpcion<bool>(
+            etiqueta: 'Asiste a control CRED',
+            opciones: const [(true, 'Sí'), (false, 'No')],
+            valor: _cred,
+            mensajeFalta: 'Indica si asiste a control CRED',
+            alCambiar: (v) => setState(() => _cred = v),
           ),
-          const SizedBox(height: 6),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Asiste a control CRED'),
-            value: _cred,
-            onChanged: (v) => setState(() => _cred = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Recibe suplementación con hierro'),
-            value: _suplementacion,
-            onChanged: (v) => setState(() => _suplementacion = v),
+          const SizedBox(height: 16),
+          CampoOpcion<bool>(
+            etiqueta: 'Recibe suplementación con hierro',
+            opciones: const [(true, 'Sí'), (false, 'No')],
+            valor: _suplementacion,
+            mensajeFalta: 'Indica si recibe suplementación con hierro',
+            alCambiar: (v) => setState(() => _suplementacion = v),
           ),
           const Titulo('Grupo de estudio'),
           SegmentedButton<String>(

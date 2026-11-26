@@ -86,7 +86,7 @@ class _ReportesScreenState extends State<ReportesScreen> {
             ['TT - Tasa de tamizaje', f(r.tt.control, '%', r.infoTt(false)), f(r.tt.experimental, '%', r.infoTt(true))],
           ],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-          headerDecoration: const pw.BoxDecoration(color: PdfColors.teal700),
+          headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF1E6FD9)),
           cellPadding: const pw.EdgeInsets.all(8),
         ),
         pw.SizedBox(height: 24),

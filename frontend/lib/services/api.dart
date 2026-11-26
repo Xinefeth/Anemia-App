@@ -22,9 +22,59 @@ class SesionExpirada implements Exception {
 class ErrorApi implements Exception {
   final String mensaje;
   final int? codigo; // código HTTP, si lo hay (403 = sin permiso)
-  ErrorApi(this.mensaje, {this.codigo});
+  final String? tipo; // type del error 422 (p. ej. "fuera_de_dominio_modelo")
+  ErrorApi(this.mensaje, {this.codigo, this.tipo});
+
+  /// El dato está fuera del dominio con el que se entrenó el modelo (edad o altitud).
+  bool get fueraDeDominio => tipo == tipoFueraDeDominio;
+
   @override
   String toString() => mensaje;
+}
+
+const String tipoFueraDeDominio = 'fuera_de_dominio_modelo';
+
+const _etiquetas = {
+  'codigo': 'código del niño',
+  'edad_meses': 'edad (meses)',
+  'sexo': 'sexo',
+  'altitud': 'altitud (msnm)',
+  'cred': 'control CRED',
+  'suplementacion': 'suplementación con hierro',
+  'grupo': 'grupo',
+};
+
+String _campo(Map e) {
+  final loc = e['loc'];
+  final c = loc is List && loc.isNotEmpty ? loc.last.toString() : '';
+  return _etiquetas[c] ?? c;
+}
+
+/// Convierte el `detail` de un 422 del backend en un texto para el usuario.
+/// - type "fuera_de_dominio_modelo": se muestra el `msg` TAL CUAL (viene redactado para el usuario).
+/// - campo faltante: "Falta el dato: ...". - cualquier otro: "El dato ... no es válido".
+String mensajeDeValidacion(List detail) {
+  final partes = <String>[];
+  for (final e in detail) {
+    if (e is! Map) continue;
+    final tipo = e['type'];
+    if (tipo == tipoFueraDeDominio && e['msg'] is String) {
+      partes.add(e['msg'] as String);
+    } else if (tipo == 'missing') {
+      partes.add('Falta el dato: ${_campo(e)}.');
+    } else {
+      partes.add('El dato "${_campo(e)}" no es válido.');
+    }
+  }
+  return partes.isEmpty ? 'Datos inválidos' : partes.join('\n');
+}
+
+/// type del primer error del 422 (para distinguir "fuera de dominio").
+String? _tipoDe(List detail) {
+  for (final e in detail) {
+    if (e is Map && e['type'] == tipoFueraDeDominio) return tipoFueraDeDominio;
+  }
+  return null;
 }
 
 class Filtro {
@@ -37,7 +87,8 @@ abstract class Api {
   /// Devuelve token y usuario.
   Future<({String token, Usuario usuario})> login(String usuario, String clave);
   Future<Prediccion> predecir(DatosNino datos);
-  Future<Valoracion> guardar(DatosNino datos, Prediccion p, DateTime fecha);
+  /// Guarda la valoración; el servidor recalcula el riesgo (no se envía el resultado).
+  Future<Valoracion> guardar(DatosNino datos, DateTime fecha);
   Future<List<Valoracion>> listar(Filtro filtro);
   Future<Valoracion> detalle(int id);
   Future<void> eliminar(int id);
@@ -71,8 +122,13 @@ class HttpApi implements Api {
         if (token().isNotEmpty) 'Authorization': 'Bearer ${token()}',
       };
 
-  Uri _u(String ruta, [Map<String, String>? q]) =>
-      Uri.parse('${Config.apiUrl}$ruta').replace(queryParameters: q);
+  Uri _u(String ruta, [Map<String, String>? q]) {
+    try {
+      return Uri.parse('${Config.apiUrl}$ruta').replace(queryParameters: q);
+    } on UrlInsegura catch (e) {
+      throw ErrorApi(e.mensaje); // nunca se envían datos por HTTP en producción
+    }
+  }
 
   Future<dynamic> _enviar(Future<http.Response> Function() f) async {
     final http.Response r;
@@ -93,11 +149,19 @@ class HttpApi implements Api {
     if (r.statusCode >= 200 && r.statusCode < 300) return cuerpo;
     if (r.statusCode >= 500) throw SinConexion();
     var msg = r.statusCode == 403 ? 'No tienes permiso para esta acción.' : 'Error ${r.statusCode}';
+    String? tipo;
     if (cuerpo is Map && cuerpo['detail'] != null) {
       final d = cuerpo['detail'];
-      msg = d is String ? d : 'Datos inválidos';
+      if (d is String) {
+        msg = d;
+      } else if (d is List) {
+        msg = mensajeDeValidacion(d);
+        tipo = _tipoDe(d);
+      } else {
+        msg = 'Datos inválidos';
+      }
     }
-    throw ErrorApi(msg, codigo: r.statusCode);
+    throw ErrorApi(msg, codigo: r.statusCode, tipo: tipo);
   }
 
   @override
@@ -123,7 +187,7 @@ class HttpApi implements Api {
 
   // El servidor recalcula el riesgo al guardar; el cliente solo envía datos.
   @override
-  Future<Valoracion> guardar(DatosNino d, Prediccion p, DateTime fecha) async {
+  Future<Valoracion> guardar(DatosNino d, DateTime fecha) async {
     final j = await _enviar(() => http.post(_u('/api/valoraciones'),
         headers: _cab,
         body: jsonEncode({...d.toJson(), 'fecha': fecha.toIso8601String()})));

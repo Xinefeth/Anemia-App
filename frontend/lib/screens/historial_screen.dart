@@ -80,6 +80,38 @@ class _HistorialScreenState extends State<HistorialScreen> {
         ),
       );
 
+  /// Valoración guardada en el teléfono: se ve qué pasa con ella y se puede descartar (solo si el usuario quiere).
+  Future<void> _detallePendiente(PendienteEnvio p) async {
+    final app = AppScope.of(context);
+    final descartar = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.datos.codigo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('${fmtFecha(p.fecha)} · ${p.datos.edadMeses} meses · ${p.datos.altitud.toStringAsFixed(0)} msnm',
+                style: const TextStyle(color: Paleta.suave)),
+            const SizedBox(height: 10),
+            if (p.error != null)
+              ErrorBanner('El servidor rechazó esta valoración: ${p.error}')
+            else
+              const AvisoSinConexion(
+                  'Guardada en el teléfono. Se enviará sola al reconectar y el servidor calculará el riesgo.'),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: Paleta.alto),
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Descartar esta valoración'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (descartar == true && p.idLocal != null) await app.descartarPendiente(p.idLocal!);
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
@@ -141,7 +173,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Paleta.suave)),
                           ),
-                        for (final v in [...pendientes, ...l]) ...[
+                        for (final p in pendientes) ...[
+                          PendienteTile(p, onTap: () => _detallePendiente(p)),
+                          const SizedBox(height: 8),
+                        ],
+                        for (final v in l) ...[
                           ValoracionTile(v,
                               onTap: v.id == null
                                   ? null

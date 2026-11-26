@@ -95,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 10),
                       _Stat('Riesgo alto', '${d.alto}', Paleta.alto),
                       const SizedBox(width: 10),
-                      _Stat('Hb prom.', d.hbPromedio.toStringAsFixed(1), Paleta.tinta),
+                      _Stat('Riesgo medio', '${d.medio}', Paleta.medio),
                     ]),
                     const SizedBox(height: 14),
                     FilledButton.icon(

@@ -37,14 +37,15 @@ class Usuario {
   Map<String, dynamic> toJson() => {'id': id, 'nombre': nombre, 'rol': rol};
 }
 
-/// Datos clínicos que se capturan en el formulario (RF07).
+/// Las 5 variables del modelo + código y grupo (RF07). Todas son obligatorias:
+/// no hay valores por defecto, para no enviar nunca un dato que el usuario no eligió.
 /// El niño se identifica solo por un código, sin nombre (RNF06).
+/// La hemoglobina NO es una entrada (el modelo no la usa: evita fuga de datos).
 class DatosNino {
   final String codigo;
-  final int edadMeses;
+  final int edadMeses; // 6 a 59
   final String sexo; // F | M
-  final double? hemoglobina; // el servidor la guarda como referencia (puede venir nula)
-  final double altitud; // msnm
+  final double altitud; // msnm del establecimiento, 0 a 700
   final bool cred; // asiste a control CRED
   final bool suplementacion; // recibe suplementación con hierro
   final String grupo; // control | experimental
@@ -53,10 +54,9 @@ class DatosNino {
     required this.codigo,
     required this.edadMeses,
     required this.sexo,
-    required this.hemoglobina,
     required this.altitud,
-    this.cred = false,
-    this.suplementacion = false,
+    required this.cred,
+    required this.suplementacion,
     required this.grupo,
   });
 
@@ -64,18 +64,17 @@ class DatosNino {
         'codigo': codigo,
         'edad_meses': edadMeses,
         'sexo': sexo,
-        if (hemoglobina != null) 'hemoglobina': hemoglobina,
         'altitud': altitud,
         'cred': cred,
         'suplementacion': suplementacion,
         'grupo': grupo,
       };
 
+  /// Tolerante con datos guardados antes (p. ej. caché con `hemoglobina`, que se ignora).
   factory DatosNino.fromJson(Map<String, dynamic> j) => DatosNino(
         codigo: j['codigo'] as String,
-        edadMeses: j['edad_meses'] as int,
+        edadMeses: (j['edad_meses'] as num).toInt(),
         sexo: (j['sexo'] ?? 'F') as String,
-        hemoglobina: (j['hemoglobina'] as num?)?.toDouble(),
         altitud: ((j['altitud'] ?? 0) as num).toDouble(),
         cred: j['cred'] == true,
         suplementacion: j['suplementacion'] == true,
@@ -118,25 +117,38 @@ class UsuarioAdmin {
 }
 
 /// Respuesta de /api/predict (RF13).
+/// [riesgo] es una ALERTA DE TAMIZAJE (no un diagnóstico). [probabilidades] son las
+/// probabilidades CALIBRADAS de cada clase (a una prevalencia de ~2.8 %); con ellas no se
+/// decide la clase: la clase es [riesgo]. Que riesgo sea "Alto" con P(Alto)=32 % es lo esperado.
 class Prediccion {
   final Riesgo riesgo;
-  final double probabilidad; // 0..1
+  final double probabilidad; // calibrada, de la clase [riesgo] (0..1)
+  final Map<Riesgo, double> probabilidades; // Bajo, Medio y Alto (calibradas)
   final int tiempoMs;
   final String modelo; // nombre/versión del modelo que predijo
-  final List<Factor> factores; // variables que más influyeron
+  final List<Factor> factores; // importancia GENERAL de las variables (no explica al niño)
 
   const Prediccion({
     required this.riesgo,
     required this.probabilidad,
+    this.probabilidades = const {},
     required this.tiempoMs,
     this.modelo = '',
     this.factores = const [],
   });
 
+  /// Probabilidad calibrada de la clase devuelta.
+  double get probRiesgo => probabilidades[riesgo] ?? probabilidad;
+
   factory Prediccion.fromJson(Map<String, dynamic> j, {int tiempoMs = 0}) =>
       Prediccion(
         riesgo: riesgoDesdeTexto(j['riesgo'] as String),
         probabilidad: (j['probabilidad'] as num).toDouble(),
+        probabilidades: {
+          if (j['probabilidades'] is Map)
+            for (final e in (j['probabilidades'] as Map).entries)
+              riesgoDesdeTexto(e.key as String): (e.value as num).toDouble(),
+        },
         tiempoMs: (j['tiempo_ms'] as num?)?.toInt() ?? tiempoMs,
         modelo: (j['modelo'] ?? '') as String,
         factores: ((j['factores_influyentes'] ?? []) as List)
@@ -155,7 +167,7 @@ class Factor {
       Factor(j['factor'] as String, (j['peso'] as num).toDouble());
 }
 
-/// Valoración registrada (RF15). [id] es null mientras está pendiente de envío.
+/// Valoración registrada en el servidor (RF15).
 class Valoracion {
   final int? id;
   final DatosNino datos;
@@ -326,5 +338,51 @@ class Reporte {
         nPc: Conteo.desde(j['n_pc']),
         nTtValorados: Conteo.desde(j['n_tt_valorados']),
         nTtRegistrados: Conteo.desde(j['n_tt_registrados']),
+      );
+}
+
+/// Valoración guardada en el teléfono mientras no hay conexión (cola SQLite, RNF09).
+/// Si la predicción ya se había obtenido se guardan [riesgo] y [probabilidad]; si no
+/// (se evaluó sin conexión) quedan nulos y el servidor calcula el riesgo al recibirla.
+/// [error] se llena si el servidor rechazó los datos: se conservan para no perderlos.
+class PendienteEnvio {
+  final int? idLocal;
+  final DatosNino datos;
+  final DateTime fecha;
+  final Riesgo? riesgo;
+  final double? probabilidad;
+  final String? error;
+
+  const PendienteEnvio({
+    this.idLocal,
+    required this.datos,
+    required this.fecha,
+    this.riesgo,
+    this.probabilidad,
+    this.error,
+  });
+
+  PendienteEnvio conId(int id) => PendienteEnvio(
+      idLocal: id, datos: datos, fecha: fecha, riesgo: riesgo, probabilidad: probabilidad, error: error);
+
+  PendienteEnvio conError(String? e) => PendienteEnvio(
+      idLocal: idLocal, datos: datos, fecha: fecha, riesgo: riesgo, probabilidad: probabilidad, error: e);
+
+  Map<String, dynamic> toJson() => {
+        'id_local': idLocal,
+        'datos': datos.toJson(),
+        'fecha': fecha.toIso8601String(),
+        'riesgo': riesgo?.texto,
+        'probabilidad': probabilidad,
+        'error': error,
+      };
+
+  factory PendienteEnvio.fromJson(Map<String, dynamic> j) => PendienteEnvio(
+        idLocal: j['id_local'] as int?,
+        datos: DatosNino.fromJson(j['datos'] as Map<String, dynamic>),
+        fecha: DateTime.parse(j['fecha'] as String),
+        riesgo: j['riesgo'] == null ? null : riesgoDesdeTexto(j['riesgo'] as String),
+        probabilidad: (j['probabilidad'] as num?)?.toDouble(),
+        error: j['error'] as String?,
       );
 }

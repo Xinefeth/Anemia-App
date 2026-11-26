@@ -90,7 +90,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   child: Column(children: [
                     RiesgoBadge(v.riesgo),
                     const SizedBox(height: 10),
-                    Text('Probabilidad ${fmtPct(v.probabilidad)}',
+                    Text('Probabilidad estimada ${fmtPct(v.probabilidad)}',
                         style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -99,7 +99,8 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              AvisoAnemia(v.datos),
+              const AvisoApoyo(),
+              const SizedBox(height: 12),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -108,7 +109,6 @@ class _DetalleScreenState extends State<DetalleScreen> {
                     _fila('Fecha', fmtFecha(v.fecha)),
                     _fila('Edad', '${v.datos.edadMeses} meses'),
                     _fila('Sexo', v.datos.sexo == 'F' ? 'Femenino' : 'Masculino'),
-                    _fila('Hemoglobina', fmtHb(v.datos.hemoglobina)),
                     _fila('Altitud', '${v.datos.altitud.toStringAsFixed(0)} msnm'),
                     _fila('Control CRED', v.datos.cred ? 'Sí' : 'No'),
                     _fila('Suplementación', v.datos.suplementacion ? 'Sí' : 'No'),
@@ -117,7 +117,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('Resultado de apoyo: no reemplaza el diagnóstico clínico.',
+              const Text('El riesgo es una alerta de tamizaje, no un diagnóstico.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Paleta.suave, fontSize: 12)),
             ]),

@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'models/modelos.dart';
 
-// Paleta provisional (los wireframes de alta fidelidad no están en la carpeta).
-// Cambiar aquí actualiza toda la app.
+// Paleta de la app. Cambiar aquí actualiza toda la app.
 class Paleta {
-  static const primario = Color(0xFF0F766E);
+  static const primario = Color(0xFF1E6FD9);
   static const fondo = Color(0xFFF5F7F8);
   static const tinta = Color(0xFF1F2933);
   static const suave = Color(0xFF6B7780);
   static const borde = Color(0xFFD9DFE3);
 
-  static const bajo = Color(0xFF2E9E5B);
-  static const medio = Color(0xFFE8A200);
-  static const alto = Color(0xFFD64545);
+  static const bajo = Color(0xFF22B573);
+  static const medio = Color(0xFFF5A623);
+  static const alto = Color(0xFFE8503A);
 
   static Color riesgo(Riesgo r) =>
       {Riesgo.bajo: bajo, Riesgo.medio: medio, Riesgo.alto: alto}[r]!;

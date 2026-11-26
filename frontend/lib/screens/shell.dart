@@ -54,7 +54,9 @@ class ShellState extends State<Shell> with WidgetsBindingObserver {
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(
-                            '${estado.pendientes.length} valoración(es) pendiente(s) de envío. Toca para reintentar.',
+                            estado.porEnviar > 0
+                                ? '${estado.porEnviar} valoración(es) pendiente(s) de envío. Toca para reintentar.'
+                                : '${estado.rechazados} valoración(es) rechazada(s) por el servidor. Revísalas en el Historial.',
                             style: const TextStyle(fontSize: 13))),
                   ]),
                 ),
